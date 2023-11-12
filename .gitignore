@@ -1,0 +1,5 @@
+# Database data for client-app
+client-app/data
+
+# VS Code Workspace
+*.code-workspace

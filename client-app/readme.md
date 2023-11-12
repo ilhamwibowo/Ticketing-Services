@@ -24,3 +24,8 @@ Jelaskan step by step cara menjalankan kode dari service ini, misal:
 1. Ensure port X, Y, Z is not used and exposed
 2. Run `docker-compose -f docker-compose-dev.yml up`
 3. Hit http://localhost:X/health and see if it returns properly
+
+## References
+
+ 1. [Quickstart: Compose and Django](https://github.com/docker/awesome-compose/tree/master/official-documentation-samples/django/#readme)
+ 2. [Django](https://www.djangoproject.com)
