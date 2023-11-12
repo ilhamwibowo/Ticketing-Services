@@ -7,9 +7,15 @@ services:
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    entrypoint:
+      - ./docker-entrypoint.sh
     volumes:
       - .:/code
     ports:
@@ -19,4 +25,5 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     depends_on:
-      - db
+      db:
+        condition: service_healthy
