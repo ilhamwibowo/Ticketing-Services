@@ -1,5 +1,9 @@
 # Database data for client-app
 client-app/data
 
+# TICKET
+ticket-app/tmp
+
 # VS Code Workspace
 *.code-workspace
+
