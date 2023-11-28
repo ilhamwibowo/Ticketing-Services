@@ -98,14 +98,14 @@ def get_chairs_status(request, event_id):
 @csrf_exempt
 def create_invoice(request):
     if request.method == 'POST':
-        transaction_id = request.POST.get('transaction_id')
+        booking_id = request.POST.get('booking_id')
         pdf_invoice = request.FILES.get('pdf_invoice')
 
         if not pdf_invoice:
             return JsonResponse({'message': 'No Files'})
 
         # Retrieve the booking transaction object
-        booking_transaction = get_object_or_404(BookingTransaction, id=transaction_id)
+        booking_transaction = get_object_or_404(BookingTransaction, id=booking_id)
 
         # Create an Invoice object
         new_invoice = Invoice(transaction=booking_transaction, invoice=pdf_invoice)
