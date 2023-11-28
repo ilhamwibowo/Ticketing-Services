@@ -1,62 +1,66 @@
-// apiserver/apiserver.go
+// ticket-app/apiserver/apiserver.go
 package apiserver
 
 import (
-  "context"
-  "errors"
-  "net/http"
-  "time"
+	"context"
+	"errors"
+	"net/http"
+	"time"
 
-  "github.com/gorilla/mux"
-  "github.com/sirupsen/logrus"
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"ticket/storage"
 )
 
 var defaultStopTimeout = time.Second * 30
 
 type APIServer struct {
-  addr string
+	addr    string
+	storage *storage.Storage
 }
 
-func NewAPIServer(addr string) (*APIServer, error) {
-  if addr == "" {
-    return nil, errors.New("addr cannot be blank")
-  }
+func NewAPIServer(addr string, storage *storage.Storage) (*APIServer, error) {
+	if addr == "" {
+		return nil, errors.New("addr cannot be blank")
+	}
 
-  return &APIServer{
-    addr: addr,
-  }, nil
+	return &APIServer{
+		addr:    addr,
+		storage: storage,
+	}, nil
 }
 
-// Start starts a server with a stop channel
 func (s *APIServer) Start(stop <-chan struct{}) error {
-  srv := &http.Server{
-    Addr:    s.addr,
-    Handler: s.router(),
-  }
+	router := s.setupRouter()
 
-  go func() {
-    logrus.WithField("addr", srv.Addr).Info("starting server")
-    if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-      logrus.Fatalf("listen: %s\n", err)
-    }
-  }()
+	server := &http.Server{
+		Addr:    s.addr,
+		Handler: router,
+	}
 
-  <-stop
-  ctx, cancel := context.WithTimeout(context.Background(), defaultStopTimeout)
-  defer cancel()
+	go func() {
+		logrus.WithField("addr", server.Addr).Info("starting server")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logrus.Fatalf("listen: %s\n", err)
+		}
+	}()
 
-  logrus.WithField("timeout", defaultStopTimeout).Info("stopping server")
-  return srv.Shutdown(ctx)
+	<-stop
+	ctx, cancel := context.WithTimeout(context.Background(), defaultStopTimeout)
+	defer cancel()
+
+	logrus.WithField("timeout", defaultStopTimeout).Info("stopping server")
+	return server.Shutdown(ctx)
 }
 
-func (s *APIServer) router() http.Handler {
-  router := mux.NewRouter()
+func (s *APIServer) setupRouter() http.Handler {
+	router := gin.Default()
 
-  router.HandleFunc("/", s.defaultRoute)
-  return router
-}
+	router.GET("/", s.defaultRoute)
+	router.POST("/seats", s.createSeat)
+	router.GET("/seats", s.listSeat)
+  router.POST("/seats/:id/hold", s.holdSeat)
+  router.POST("/webhook/payment", s.paymentWebhook)
 
-func (s *APIServer) defaultRoute(w http.ResponseWriter, r *http.Request) {
-  w.WriteHeader(http.StatusOK)
-  w.Write([]byte("Hello World"))
+	return router
 }
