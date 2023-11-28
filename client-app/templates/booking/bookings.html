@@ -14,8 +14,8 @@
             <p>Status: {{ booking.status }}</p>
             <p>
                 <a
-                    x-show="'{{ booking.invoice_id }}' !== 'None'"
-                    href="{% url 'get_invoice' booking.invoice_id %}"
+                    x-show="'{{ booking.invoice.id }}' !== 'None'"
+                    href="{% url 'get_invoice' booking.invoice.id %}"
                 >Invoice</a>  
             </p>
             <button @click="refreshBooking('{{ booking.id }}')">Refresh</button>

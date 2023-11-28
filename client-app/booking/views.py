@@ -4,66 +4,56 @@ from django.views import View
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, get_object_or_404
 import json
-from .models import BookingTransaction, Invoice
+from .models import BookingTransaction, Invoice, TicketingExternalAPI
 from django.db.models import F
 from django.views.decorators.csrf import csrf_exempt
 
 
 @login_required
 def list_of_bookings(request):
-    bookings = json.loads(list_bookings(request).content)['user_bookings']
+    bookings = BookingTransaction.get_all_bookings_for_user(request.user)
     print(bookings)
     return render(request, 'booking/bookings.html', {'bookings': bookings})
 
 @login_required
 def list_bookings(request):
-    user_bookings = BookingTransaction.objects.filter(user=request.user)
+    user_bookings = BookingTransaction.get_all_bookings_for_user(request.user)
     status_filter = request.GET.get('status')
     if status_filter:
         user_bookings = user_bookings.filter(status=status_filter)
-    
-    # Perform left join with Invoice model
-    bookings_with_invoices = user_bookings.annotate(
-        invoice_id=F('invoice__id'),
-        invoice_transaction_id=F('invoice__transaction_id'),
-        invoice_file=F('invoice__invoice')
-    ).values(
-        'id',  # Select fields from BookingTransaction
-        'event_id',
-        'seats',
-        'status',
-        'invoice_id',  # Fields from Invoice model
-        'invoice_transaction_id',
-        'invoice_file'  # File field
-    )
-
-    return JsonResponse({'user_bookings': list(bookings_with_invoices)})
+    return JsonResponse({'user_bookings': list(user_bookings)})
 
 class BookView(View):
     template_name = 'booking/book.html'  # HTML template file
     
     def get(self, request):
-        # Retrieve available events using Django URL name
-        events_response = get_available_events(request).content
-        events = json.loads(events_response)['available_events']
-
+        events = TicketingExternalAPI.get_events()
         return render(request, self.template_name, {'events': events})
 
     def post(self, request):
         # Extract data from the request
         request_body = json.loads(request.body)
         event_id = request_body.get('event_id')
-        seats_booked = request_body.get('seats')
+        seats = request_body.get('seats')
         status = 'PENDING'
         user = request.user  # Current logged-in user
+
+        for seat in seats:
+            # Create a new invoice
+            hold_seat_req = TicketingExternalAPI.hold_seat(seat)
+            invoice = Invoice(
+                id=hold_seat_req['invoice_id']
+            )
+            invoice.save()
         
-        # Create and save the BookingTransaction entry
-        booking = BookingTransaction.objects.create(
-            event_id=event_id,
-            seats=seats_booked,
-            status=status,
-            user=user
-        )
+            # Create and save the BookingTransaction entry
+            booking = BookingTransaction.objects.create(
+                event_id=event_id,
+                seats=[seat],
+                status=status,
+                user=user,
+                invoice=invoice
+            )
         
         # Return a success message or the created entry data
         return JsonResponse({"message": "Booking created successfully", "booking_id": booking.id})
@@ -87,36 +77,47 @@ def refresh_booking_status(request, booking_id):
     except BookingTransaction.DoesNotExist:
         return JsonResponse({'error': 'Booking not found'}, status=404)
     
-def get_available_events(request):
-    available_events = [{'id': '1', 'name': 'Event 1'}, {'id': '2', 'name': 'Event 2'}]
+def get_available_events(_):
+    available_events = TicketingExternalAPI.get_events()
     return JsonResponse({'available_events': available_events})
 
-def get_chairs_status(request, event_id):
-    chairs_status = {'event_id': event_id, 'chairs': ['A1', 'A2', 'B1', 'B2']}
+def get_chairs_status(_, event_id):
+    chairs_status = TicketingExternalAPI.get_seats(event_id)
     return JsonResponse({'chairs_status': chairs_status})
 
 @csrf_exempt
 def create_invoice(request):
     if request.method == 'POST':
-        booking_id = request.POST.get('booking_id')
-        pdf_invoice = request.FILES.get('pdf_invoice')
+        invoice_id = request.POST.get('invoice_id')
+        pdf_invoice = request.FILES.get('invoice_pdf')
 
         if not pdf_invoice:
             return JsonResponse({'message': 'No Files'})
 
-        # Retrieve the booking transaction object
-        booking_transaction = get_object_or_404(BookingTransaction, id=booking_id)
-
-        # Create an Invoice object
-        new_invoice = Invoice(transaction=booking_transaction, invoice=pdf_invoice)
-        new_invoice.save()
-
-        return JsonResponse({'message': 'Invoice created successfully'})
+        try:
+            invoice = Invoice.objects.get(id=invoice_id)
+            invoice.invoice = pdf_invoice
+            invoice.save()
+            return JsonResponse({
+                'message': 'Invoice updated successfully',
+                'invoice_id': invoice_id
+            })
+        except Invoice.DoesNotExist:
+            # If the invoice doesn't exist, create a new one
+            invoice = Invoice(id=invoice_id, invoice=pdf_invoice)
+            invoice.save()
+            return JsonResponse({
+                'message': 'Invoice created successfully',
+                'invoice_id': invoice_id
+            })
     
     return JsonResponse({'error': 'Invalid request method'})
 
 
 @csrf_exempt
 def get_invoice(_, invoice_id):
-    invoice = Invoice.objects.get(id=invoice_id)  
-    return FileResponse(invoice.invoice)
+    invoice = Invoice.objects.get(id=invoice_id)
+    if invoice.invoice:  
+        return FileResponse(invoice.invoice)
+    else:
+        return JsonResponse({ 'message': 'No File' })
