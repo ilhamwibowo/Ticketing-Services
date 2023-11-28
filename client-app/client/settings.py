@@ -138,3 +138,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Redirect Login to Home
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
+
+# settings.py
+
+# Define the directory where media files will be stored
+MEDIA_ROOT = '/data/media/'
+
+# Define the URL that serves the media files
+MEDIA_URL = '/media/'

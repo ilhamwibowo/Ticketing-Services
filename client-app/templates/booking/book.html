@@ -12,7 +12,8 @@
         <button @click="$store.chairs.updateChairs('{{ event.id }}')">Select</button>
         <button 
             @click="$store.selectedChairs.submitBooking('{{ event.id }}')"
-            x-bind:disabled="$store.chairs.getChairs('{{ event.id }}').length === 0 || $store.selectedChairs.selectedChairs.length === 0"
+            x-show="$store.chairs.getChairs('{{ event.id }}')"
+            x-bind:disabled="$store.selectedChairs.selectedChairs.length === 0"
         >Book Selected Chairs</button>
         <ul>
             <template x-for="chair in $store.chairs.getChairs('{{ event.id }}')">
@@ -30,7 +31,7 @@
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.store('chairs', {
-            chairs: [],
+            chairs: {},
             getChairs(eventId) {
                 return this.chairs[eventId]
             },

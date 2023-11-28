@@ -6,16 +6,18 @@ Dokumentasi ini tidak strict, silahkan ubah sesuai yang diinginkan, yang penting
 
 ### HTTP APIs
 
-| HTTP Method | Endpoint   | Description              |
-| ----------- | ---------- | ------------------------ |
-| GET         | /v1/health | Get service health check |
-| GET         | /v1/todos  | Get list of todos        |
-
-### GRPC APIs
-
-| Method                               | Return  | Description       |
-| ------------------------------------ | ------- | ----------------- |
-| GetAllTodos(page int, search string) | [ ]Todo | Get list of todos |
+| HTTP Method | Endpoint                                     | Description                          |
+| ----------- | -------------------------------------------- | ------------------------------------ |
+| GET         | /health/                                     | Get service health check             |
+| GET         | /book/                                       | Get list of bookings                 |
+| GET         | /book/api/bookings/                          | Get list of bookings (API)           |
+| GET         | /book/api/bookings/<str:booking_id>/refresh/ | Refresh booking status (API)         |
+| GET         | /book/book/                                  | Book a seat (Web)                    |
+| POST        | /book/book/                                  | Book a seat (API)                    |
+| GET         | /book/api/events/                            | Get available events (API)           |
+| GET         | /book/api/events/<str:event_id>/chairs/      | Get chairs status for an event (API) |
+| POST        | /book/api/invoices/create/                   | Create invoice (API)                 |
+| GET         | /book/api/invoices/<str:invoice_id>/         | Get invoice file (API)               |
 
 ## How To Start
 
@@ -27,5 +29,5 @@ Jelaskan step by step cara menjalankan kode dari service ini, misal:
 
 ## References
 
- 1. [Quickstart: Compose and Django](https://github.com/docker/awesome-compose/tree/master/official-documentation-samples/django/#readme)
- 2. [Django](https://www.djangoproject.com)
+1.  [Quickstart: Compose and Django](https://github.com/docker/awesome-compose/tree/master/official-documentation-samples/django/#readme)
+2.  [Django](https://www.djangoproject.com)

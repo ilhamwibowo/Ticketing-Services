@@ -9,30 +9,41 @@
     {% for booking in bookings %}
         <div>
             <h2>Event ID: {{ booking.event_id }}</h2>
-            <p>UUID: {{ booking.uuid }}</p>
+            <p>ID: {{ booking.id }}</p>
             <p>Chairs: {{ booking.seats|join:", " }}</p>
             <p>Status: {{ booking.status }}</p>
-            <button @click="refreshBooking(booking.uuid)">Refresh</button>
+            <p>
+                <a
+                    x-show="'{{ booking.invoice_id }}' !== 'None'"
+                    href="{% url 'get_invoice' booking.invoice_id %}"
+                >Invoice</a>  
+            </p>
+            <button @click="refreshBooking('{{ booking.id }}')">Refresh</button>
         </div>
     {% endfor %}
+    <script>
+        function refreshBooking(bookingId) {
+            const url = "{% url 'refresh_booking_status' booking_id=0 %}".replace("0", bookingId)
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}"
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Replace the updated entry in the bookings list
+                const index = this.bookings.findIndex(booking => booking.id === bookingId);
+                if (index !== -1) {
+                    this.bookings.splice(index, 1, data.updated_booking);
+                }
+            })
+            .catch(error => {
+                console.error('Error refreshing booking:', error);
+            });
+        }
+    </script>
 </div>
 
-<script>
-    function refreshBooking(bookingId) {
-        fetch(`/bookings/${bookingId}/refresh/`, {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Replace the updated entry in the bookings list
-            const index = this.bookings.findIndex(booking => booking.uuid === bookingId);
-            if (index !== -1) {
-                this.bookings.splice(index, 1, data.updated_booking);
-            }
-        })
-        .catch(error => {
-            console.error('Error refreshing booking:', error);
-        });
-    }
-</script>
+
 {% endblock %}
