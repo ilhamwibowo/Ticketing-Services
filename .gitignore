@@ -7,3 +7,4 @@ ticket-app/tmp
 # VS Code Workspace
 *.code-workspace
 
+*.pyc

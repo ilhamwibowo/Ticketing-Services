@@ -42,6 +42,10 @@ INSTALLED_APPS = [
     # django-health-check
     'health_check',
     'health_check.db',
+
+    # apps
+    'booking',
+    'authentication',
 ]
 
 MIDDLEWARE = [
@@ -59,7 +63,7 @@ ROOT_URLCONF = 'client.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / "templates"],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -130,3 +134,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Redirect Login to Home
+LOGIN_REDIRECT_URL = 'home'
+LOGIN_URL = 'login'

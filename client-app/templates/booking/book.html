@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block title %}Book a Seat{% endblock %}
+
+{% block content %}
+
+<div x-data>
+    <h1>Select an Event</h1>
+    {% for event in events %}
+    <div>
+        <h2 x-text="'{{ event.name }}'"></h2>
+        <button @click="$store.chairs.updateChairs('{{ event.id }}')">Select</button>
+        <button 
+            @click="$store.selectedChairs.submitBooking('{{ event.id }}')"
+            x-bind:disabled="$store.chairs.getChairs('{{ event.id }}').length === 0 || $store.selectedChairs.selectedChairs.length === 0"
+        >Book Selected Chairs</button>
+        <ul>
+            <template x-for="chair in $store.chairs.getChairs('{{ event.id }}')">
+                <li><label>
+                    <input type="checkbox" x-on:click="$store.selectedChairs.toggleChair(chair)">
+                    <span x-text="chair"></span>
+                </label></li>
+            </template>
+        </ul>
+        
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+    document.addEventListener('alpine:init', () => {
+        Alpine.store('chairs', {
+            chairs: [],
+            getChairs(eventId) {
+                return this.chairs[eventId]
+            },
+            updateChairs(eventId) {
+                const url = "{% url 'get_chairs_status' event_id=0 %}".replace("0", eventId)
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Update chairs list
+                        this.chairs = {
+                            [data.chairs_status.event_id.toString()]: data.chairs_status.chairs
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching chairs:', error);
+                });
+            }
+        })
+
+        Alpine.store('selectedChairs', {
+            selectedChairs: [],
+            toggleChair(chair) {
+                if (this.selectedChairs.includes(chair)) {
+                    this.selectedChairs = this.selectedChairs.filter(item => item !== chair);
+                } else {
+                    this.selectedChairs.push(chair);
+                }
+            },
+            submitBooking(eventId) {
+                const url = "{% url 'book' %}"
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        "X-CSRFToken": "{{ csrf_token }}"
+                    },
+                    body: JSON.stringify({
+                        event_id: eventId,
+                        seats: this.selectedChairs,
+                    }),
+                })
+                .then(response => response.json())
+                .then(data => {
+                    // Handle the response, maybe show a success message
+                    console.log(data);
+                    this.selectedChairs = []; // Clear selected chairs after successful booking
+                })
+                .catch(error => {
+                    // Handle any errors
+                    console.error('Error:', error);
+                });
+            }
+        })
+    })
+</script>
+
+{% endblock %}

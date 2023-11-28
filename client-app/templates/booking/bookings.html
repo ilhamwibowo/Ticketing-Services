@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block title %}Bookings{% endblock %}
+
+{% block content %}
+<div x-data="{ bookings: [] }">
+    <h1>User Bookings</h1>
+    <a href="{% url 'book' %}">Book a seat</a>
+    {% for booking in bookings %}
+        <div>
+            <h2>Event ID: {{ booking.event_id }}</h2>
+            <p>UUID: {{ booking.uuid }}</p>
+            <p>Chairs: {{ booking.seats|join:", " }}</p>
+            <p>Status: {{ booking.status }}</p>
+            <button @click="refreshBooking(booking.uuid)">Refresh</button>
+        </div>
+    {% endfor %}
+</div>
+
+<script>
+    function refreshBooking(bookingId) {
+        fetch(`/bookings/${bookingId}/refresh/`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Replace the updated entry in the bookings list
+            const index = this.bookings.findIndex(booking => booking.uuid === bookingId);
+            if (index !== -1) {
+                this.bookings.splice(index, 1, data.updated_booking);
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing booking:', error);
+        });
+    }
+</script>
+{% endblock %}
