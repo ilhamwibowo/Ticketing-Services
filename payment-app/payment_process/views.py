@@ -42,18 +42,19 @@ async def send_webhook(invoice):
     webhook_url = "http://app:3000/webhook/payment"  # Replace with the appropriate URL
     payload = {
         'invoice_id': invoice.invoice_id,
-        'status': invoice.status,
+        'status': str(invoice.status),
     }
 
     response = requests.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
     if response.status_code == 200:
         print("Webhook sent successfully")
     else:
+        print(response)
         print("Failed to send webhook")
 
 @csrf_exempt
 def process_payment(request):
-    invoice_id = "INV123"
+    invoice_id = "DG9M91E7"
 
     # Simulate 10% failure
     status = random.choices([True, False], weights=[90, 10])[0]
