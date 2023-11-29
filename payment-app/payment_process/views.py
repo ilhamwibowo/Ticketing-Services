@@ -9,10 +9,10 @@ from .models import Invoice
 
 @csrf_exempt
 async def process_payment(request):
-    invoice_id = generate_unique_invoice_id()
+    invoice_id = await generate_unique_invoice_id()
 
     # Simulasi kegagalan 10%
-    status = await random.choices([True, False], weights=[90, 10])[0]
+    status = random.choices([True, False], weights=[90, 10])[0]
 
     invoice = Invoice.objects.create(
         invoice_id=invoice_id,
@@ -46,7 +46,3 @@ async def generate_unique_invoice_id():
 def generate_random_invoice_id():
     # Implementasi sederhana untuk menghasilkan invoice_id yang unik
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
-
-# def payment_form(request):
-#     invoice_id = request.GET.get('invoice_id')
-#     return render(request, 'payment_form.html', {'invoice_id': invoice_id})
