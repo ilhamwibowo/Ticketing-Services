@@ -33,19 +33,14 @@ class TicketingExternalAPI():
 class Invoice(models.Model):
     id = models.CharField(primary_key=True, max_length=100, default=None)  # ID as a string
     invoice = models.FileField()  # Store the PDF file
+    status = models.CharField(max_length=100, default=None, null=True)
     payment_url = models.URLField(default=None, null=True)
 
 class BookingTransaction(models.Model):
-    STATUS_CHOICES = (
-        ('SUCCESS', 'Success'),
-        ('FAILED', 'Failed'),
-        ('PENDING', 'Pending'),
-    )
     id = models.UUIDField(primary_key=True, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     event_id = models.CharField(max_length=100, default=None)
     seats = models.JSONField(default=list)  # List of booked seats
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=None)
     invoice = models.OneToOneField(Invoice, on_delete=models.CASCADE, null=True)
 
     def save(self, *args, **kwargs):

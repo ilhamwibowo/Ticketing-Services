@@ -11,7 +11,7 @@
             <h2>Event ID: {{ booking.event_id }}</h2>
             <p>ID: {{ booking.id }}</p>
             <p>Chairs: {{ booking.seats|join:", " }}</p>
-            <p>Status: {{ booking.status }}</p>
+            <p>Status: {{ booking.invoice.status }}</p>
             <p>
                 <a
                     x-show="'{{ booking.invoice.payment_url }}' !== 'None'"
@@ -25,7 +25,7 @@
                     href="{% url 'get_invoice' booking.invoice.id %}"
                 >Invoice</a>  
             </p>
-            <button @click="refreshBooking('{{ booking.id }}')">Refresh</button>
+            <!-- <button @click="refreshBooking('{{ booking.id }}')">Refresh</button> -->
         </div>
     {% endfor %}
     <script>

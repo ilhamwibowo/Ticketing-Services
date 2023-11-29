@@ -2,7 +2,7 @@ from django.conf import settings
 from django.http import JsonResponse, FileResponse
 from django.views import View
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import render
 import json
 from .models import BookingTransaction, Invoice, TicketingExternalAPI
 from django.db.models import F
@@ -18,9 +18,6 @@ def list_of_bookings(request):
 @login_required
 def list_bookings(request):
     user_bookings = BookingTransaction.get_all_bookings_for_user(request.user)
-    status_filter = request.GET.get('status')
-    if status_filter:
-        user_bookings = user_bookings.filter(status=status_filter)
     return JsonResponse({'user_bookings': list(user_bookings)})
 
 class BookView(View):
@@ -35,7 +32,6 @@ class BookView(View):
         request_body = json.loads(request.body)
         event_id = request_body.get('event_id')
         seats = request_body.get('seats')
-        status = 'PENDING'
         user = request.user  # Current logged-in user
 
         for seat in seats:
@@ -43,6 +39,7 @@ class BookView(View):
             hold_seat_req = TicketingExternalAPI.hold_seat(event_id, seat)
             invoice = Invoice(
                 id=hold_seat_req['invoice_id'],
+                status=hold_seat_req['message'],
                 payment_url=hold_seat_req['payment_url']
             )
             invoice.save()
@@ -51,7 +48,6 @@ class BookView(View):
             booking = BookingTransaction.objects.create(
                 event_id=event_id,
                 seats=[seat],
-                status=status,
                 user=user,
                 invoice=invoice
             )
@@ -62,7 +58,7 @@ class BookView(View):
 @login_required
 def refresh_booking_status(request, booking_id):
     try:
-        booking = BookingTransaction.objects.get(id=booking_id)
+        #booking = BookingTransaction.objects.get(id=booking_id)
         
         # Simulating external API call and data retrieval
         # Replace this logic with your actual external API call to update the status
@@ -70,8 +66,8 @@ def refresh_booking_status(request, booking_id):
         new_status = 'SUCCESS'  # Replace this with the actual status received from the API
 
         # Update the booking status and save it
-        booking.status = new_status
-        booking.save()
+        #booking.status = new_status
+        #booking.save()
 
         return JsonResponse({'message': f'Booking {booking_id} status updated to {new_status}'})
     
