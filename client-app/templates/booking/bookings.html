@@ -14,6 +14,13 @@
             <p>Status: {{ booking.status }}</p>
             <p>
                 <a
+                    x-show="'{{ booking.invoice.payment_url }}' !== 'None'"
+                    href="{{ booking.invoice.payment_url }}"
+                    target="_blank"
+                >Payment Link</a>  
+            </p>
+            <p>
+                <a
                     x-show="'{{ booking.invoice.id }}' !== 'None'"
                     href="{% url 'get_invoice' booking.invoice.id %}"
                 >Invoice</a>  

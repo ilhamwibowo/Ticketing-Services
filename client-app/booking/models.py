@@ -1,25 +1,39 @@
 import uuid
 from django.contrib.auth.models import User
 from django.db import models
-
+import requests
+import json
 class TicketingExternalAPI():
+    url = "http://app:3000"
+
     def get_events():
-        return [{'id': '1', 'name': 'Event 1'}, {'id': '2', 'name': 'Event 2'}]
+        endpoint = "events"
+        response = requests.get(f"{TicketingExternalAPI.url}/{endpoint}")
+        events = json.loads(response.text)
+        print(events)
+        return events
 
     def get_seats(event_id):
-        return {'event_id': event_id, 'chairs': ['A1', 'A2', 'B1', 'B2']}
+        endpoint = f"events/{event_id}/empty-seats"
+        response = requests.get(f"{TicketingExternalAPI.url}/{endpoint}")
+        events = json.loads(response.text)
+        print(events)
+        return events
     
     def get_seat_status(seat_id):
         pass
 
-    def hold_seat(seat_id):
-        return {
-            'invoice_id': uuid.uuid4()
-        }
+    def hold_seat(event_id, seat_number):
+        endpoint = f"book/{event_id}/{seat_number}"
+        response = requests.post(f"{TicketingExternalAPI.url}/{endpoint}")
+        events = json.loads(response.text)
+        print(events)
+        return events
 
 class Invoice(models.Model):
     id = models.CharField(primary_key=True, max_length=100, default=None)  # ID as a string
     invoice = models.FileField()  # Store the PDF file
+    payment_url = models.URLField(default=None, null=True)
 
 class BookingTransaction(models.Model):
     STATUS_CHOICES = (

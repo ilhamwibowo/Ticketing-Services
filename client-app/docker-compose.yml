@@ -24,6 +24,13 @@ services:
       - POSTGRES_NAME=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    networks:
+      - default
+      - shared_network
     depends_on:
       db:
         condition: service_healthy
+
+networks:
+  shared_network:
+    driver: bridge
