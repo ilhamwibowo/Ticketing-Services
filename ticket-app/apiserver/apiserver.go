@@ -67,5 +67,6 @@ func (s *APIServer) setupRouter() http.Handler {
   router.POST("/book/:event_id/:seat_number", s.holdSeat)
   router.POST("/webhook/payment", s.paymentWebhook)
   
+  router.GET("/test-generate-pdf", s.testGeneratePDF)// DELETE
   return router
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/skip2/go-qrcode"
 	"github.com/jung-kurt/gofpdf"
 	"ticket/storage"
 )
@@ -138,30 +139,26 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 
 // NOTE: DELETE LATER
 func (s *APIServer) testGeneratePDF(c *gin.Context) {
-	// Sample data for testing
 	eventName := "Sample Event"
 	seatNumber := "A1"
 	invoiceID := "INV123"
 	bookingID := "BK456"
 	status := "Paid"
 
-	// Generate PDF content using the generatePDF function
-	pdfContent, err := generatePDF(eventName, seatNumber, invoiceID, bookingID, status)
+	pdfContent, err := generatePDF(eventName, seatNumber, invoiceID, bookingID, status, "Unexpected Failure")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
 		return
 	}
 
-	// Simulate sending the PDF content in the API response (for testing purposes)
 	c.Data(http.StatusOK, "application/pdf", pdfContent)
 }
 
 
-func generatePDF(eventName, seatNumber, invoiceID, bookingID, status string) ([]byte, error) {
+func generatePDF(eventName, seatNumber, invoiceID, bookingID, status, failureReason string) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 
-	// judul
 	pdf.SetFont("Arial", "B", 16)
 	pdf.MultiCell(0, 10, "Invoice", "0", "C", false)
 
@@ -178,6 +175,27 @@ func generatePDF(eventName, seatNumber, invoiceID, bookingID, status string) ([]
 
 	pdf.SetFont("Arial", "B", 12)
 	pdf.Cell(0, 10, fmt.Sprintf("Status: %s", strings.ToUpper(status)))
+
+	if strings.ToLower(status) == "failed" {
+		pdf.Ln(10)
+		pdf.SetFont("Arial", "", 12)
+		pdf.Cell(0, 10, fmt.Sprintf("Failure Reason: %s", failureReason))
+	}
+
+	qrCode, err := qrcode.New(bookingID, qrcode.Medium)
+	if err != nil {
+		return nil, err
+	}
+
+	qrCode.Content = bookingID
+
+	qrCodeBytes, err := qrCode.PNG(256)
+	if err != nil {
+		return nil, err
+	}
+
+	pdf.RegisterImageOptionsReader("qrCode", gofpdf.ImageOptions{ImageType: "png"}, bytes.NewReader(qrCodeBytes))
+	pdf.ImageOptions("qrCode", 10, 170, 40, 0, false, gofpdf.ImageOptions{}, 0, "")
 
 	var buf bytes.Buffer
 
