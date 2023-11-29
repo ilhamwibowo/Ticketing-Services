@@ -49,9 +49,10 @@ class BookView(View):
                 status=hold_seat_req['message'],
                 payment_url=hold_seat_req['payment_url'],
             )
-            invoice.invoice.save(f"{temp_id}.pdf", ContentFile(
-                base64.b64decode(hold_seat_req['pdf'])
-            ))
+            if hold_seat_req['pdf']:
+                invoice.invoice.save(f"{temp_id}.pdf", ContentFile(
+                    base64.b64decode(hold_seat_req['pdf'])
+                ))
             invoice.save()
         
             # Create and save the BookingTransaction entry
