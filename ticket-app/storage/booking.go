@@ -1,5 +1,8 @@
 package storage
 
+import (
+	"gorm.io/gorm"
+)
 
 type Booking struct {
 	ID          uint   `gorm:"primaryKey"`
@@ -23,3 +26,15 @@ func (s *Storage) UpdateBookingStatusByInvoiceID(invoiceID, status string) error
 	return s.db.Model(&Booking{}).Where("invoice_id = ?", invoiceID).Update("status", status).Error
 }
 
+// GetBookingByInvoiceID retrieves a booking by its invoice ID
+func (s *Storage) GetBookingByInvoiceID(invoiceID string) (*Booking, error) {
+	booking := &Booking{}
+	err := s.db.Where("invoice_id = ?", invoiceID).First(booking).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil // Return nil, nil if the record is not found
+		}
+		return nil, err
+	}
+	return booking, nil
+}

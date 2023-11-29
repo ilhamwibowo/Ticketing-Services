@@ -1,4 +1,4 @@
-//ticket-app/apiserver/handlers
+//ticket-app/apiserver/booking_handler.go
 package apiserver
 
 import (
@@ -9,6 +9,8 @@ import (
 	"bytes"
 	"fmt"
 	"strings"
+	"io/ioutil"
+	"mime/multipart"
 
 	"github.com/gin-gonic/gin"
 	"github.com/skip2/go-qrcode"
@@ -18,6 +20,21 @@ import (
 
 func (s *APIServer) defaultRoute(c *gin.Context) {
 	c.String(http.StatusOK, "Hello World")
+}
+
+func (s *APIServer) checkClientHealth(c *gin.Context) {
+	resp, err := http.Get("http://web:8000/book")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to the service"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		c.JSON(http.StatusOK, gin.H{"status": "Service is healthy"})
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "Service is not healthy", "code": resp.StatusCode})
+	}
 }
 
 func (s *APIServer) holdSeat(c *gin.Context) {
@@ -84,7 +101,6 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 }
 
 func (s *APIServer) paymentWebhook(c *gin.Context) {
-	// Parse the incoming JSON payload from the payment app
 	var webhookData struct {
 		InvoiceID string `json:"invoice_id"`
 		Status    string `json:"status"`
@@ -95,47 +111,45 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 		return
 	}
 
-	// Update the status of the invoiceID in the database
 	err := s.storage.UpdateBookingStatusByInvoiceID(webhookData.InvoiceID, webhookData.Status)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update status"})
 		return
 	}
 
-  // send pdf
-  // Generate PDF content
-  // pdfContent, err := generatePDF(webhookData.InvoiceID)
-  // if err != nil {
-  //   c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
-  //   return
-  // }
+	booking, err := s.storage.GetBookingByInvoiceID(webhookData.InvoiceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve booking"})
+		return
+	}
 
-  
-  // apiURL := "https://your-ticket-app.com/send-pdf"
+	seat, err := s.storage.GetSeatByID(booking.SeatID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve seat"})
+		return
+	}
 
-  // resp, err := sendPDFToTicketApp(apiURL, pdfContent)
-  // if err != nil {
-  //   c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send PDF"})
-  //   return
-  // }
-  // defer resp.Body.Close()
+	event, err := s.storage.GetEventByID(seat.EventID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve event"})
+		return
+	}
 
-  // if resp.StatusCode != http.StatusOK {
-  //   c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to send PDF to ticket app"})
-  //   return
-  // }
+	pdfContent, err := generatePDF(event.EventName, seat.SeatNumber, booking.InvoiceID, fmt.Sprintf("%d", booking.ID), booking.Status, "Unexpected Error")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		return
+	}
 
-  c.JSON(http.StatusOK, gin.H{"message": "PDF sent to ticket app"})
+	err = sendPDFToClient(booking.InvoiceID, pdfContent)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "PDF sent to ticket app"})
 }
 
-// TODO: impl
-// send pdf to client
-
-// TODO: impl
-// func generatePDF(invoiceID string) ([]byte, error) { 
-// 	content := []byte(fmt.Sprintf("PDF Content for Invoice ID: %s", invoiceID))
-// 	return content, nil
-// }
 
 // NOTE: DELETE LATER
 func (s *APIServer) testGeneratePDF(c *gin.Context) {
@@ -223,4 +237,47 @@ func callPaymentAPI() (string, string, bool) {
 	mockInvoiceID := "INV12345" // TODO: change
 	mockPaymentURL := "https://payment.app.com/pay/INV12345"
 	return mockInvoiceID, mockPaymentURL, true
+}
+
+func sendPDFToClient(invoiceID string, pdfContent []byte) error {
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	_ = writer.WriteField("invoice_id", invoiceID)
+
+	part, err := writer.CreateFormFile("invoice_pdf", "invoice.pdf")
+	if err != nil {
+		return err
+	}
+	_, _ = part.Write(pdfContent)
+
+	_ = writer.Close()
+
+	apiURL := "http://web:8000/book/api/invoices/create/"
+
+	req, err := http.NewRequest("POST", apiURL, body)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to upload invoice: %d", resp.StatusCode)
+	}
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("API Response:", string(respBody))
+
+	return nil
 }
