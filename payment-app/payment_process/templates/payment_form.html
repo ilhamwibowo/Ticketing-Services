@@ -9,8 +9,8 @@
     <h1>Payment Form</h1>
     <form method="post" id="paymentForm">
         {% csrf_token %}
-        <label for="invoiceNumber">Invoice Number:</label>
-        <input type="text" id="invoiceNumber" name="invoice_number" value="{{ invoice_number }}" readonly><br>
+        <label for="invoiceId">Invoice Id:</label>
+        <input type="text" id="invoiceId" name="invoice_id" value="{{ invoice_id }}" readonly><br>
 
         <button type="button" id="submitPayment">Process Payment</button>
     </form>
