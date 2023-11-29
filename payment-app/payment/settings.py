@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-rq)n9mgboqdjm3c@f0ukinpc&javh+ixeb+83n0lg&w=&$0rl0
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["web", "localhost"]
 
 
 # Application definition
@@ -61,7 +61,7 @@ MIDDLEWARE = [
 ]
 
 CORS_ALLOWED_ORIGINS = [
-    # "http://localhost:3000",  # Ganti sesuaikan
+    "http://localhost:3000",  # Ganti sesuaikan
 ]
 
 ROOT_URLCONF = 'payment.urls'

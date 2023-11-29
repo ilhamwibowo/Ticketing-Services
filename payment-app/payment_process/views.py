@@ -28,7 +28,7 @@ async def process_payment(request):
     )
 
     # Kirim webhook ke Ticket App
-    webhook_url = "WEBHOOK_URL"  # Ganti dengan konfigurasi yang sesuai
+    webhook_url = "http://localhost:3000/webhook/payment"  # Ganti dengan konfigurasi yang sesuai
     payload = {
         'invoice_id': invoice.invoice_id,
         'status': invoice.status,

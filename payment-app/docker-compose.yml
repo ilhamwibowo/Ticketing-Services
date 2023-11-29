@@ -19,11 +19,18 @@ services:
     volumes:
       - .:/code
     ports:
-      - "8000:8000"
+      - "8080:8080"
     environment:
       - POSTGRES_NAME=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    networks:
+      - default
+      - client-app_shared_network
     depends_on:
       db:
         condition: service_healthy
+
+networks:
+  client-app_shared_network:
+    external: true
