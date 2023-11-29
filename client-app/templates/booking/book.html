@@ -8,18 +8,18 @@
     <h1>Select an Event</h1>
     {% for event in events %}
     <div>
-        <h2 x-text="'{{ event.name }}'"></h2>
-        <button @click="$store.chairs.updateChairs('{{ event.id }}')">Select</button>
+        <h2 x-text="'{{ event.EventName }}'"></h2>
+        <button @click="$store.chairs.updateChairs({{ event.EventID }})">Select</button>
         <button 
-            @click="$store.selectedChairs.submitBooking('{{ event.id }}')"
-            x-show="$store.chairs.getChairs('{{ event.id }}')"
-            x-bind:disabled="$store.selectedChairs.selectedChairs.length === 0"
+            @click="$store.chairs.submitBooking({{ event.EventID }})"
+            x-show="$store.chairs.getChairs({{ event.EventID }}).length !== 0"
+            x-bind:disabled="$store.chairs.selectedChairs.length === 0"
         >Book Selected Chairs</button>
         <ul>
-            <template x-for="chair in $store.chairs.getChairs('{{ event.id }}')">
+            <template x-for="chair in $store.chairs.getChairs({{ event.EventID }})">
                 <li><label>
-                    <input type="checkbox" x-on:click="$store.selectedChairs.toggleChair(chair)">
-                    <span x-text="chair"></span>
+                    <input type="checkbox" x-on:click="$store.chairs.toggleChair(chair.ID)">
+                    <span x-text="chair.SeatNumber"></span>
                 </label></li>
             </template>
         </ul>
@@ -31,36 +31,34 @@
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.store('chairs', {
-            chairs: {},
-            getChairs(eventId) {
-                return this.chairs[eventId]
+            chairs: [],
+            getChairs(EventID) {
+                console.log(this.chairs.filter(e => e.EventID === EventID))
+                return this.chairs.filter(e => e.EventID === EventID)
             },
-            updateChairs(eventId) {
-                const url = "{% url 'get_chairs_status' event_id=0 %}".replace("0", eventId)
+            updateChairs(EventID) {
+                const url = "{% url 'get_chairs_status' event_id=0 %}".replace("0", EventID)
                 fetch(url)
                     .then(response => response.json())
                     .then(data => {
                         // Update chairs list
-                        this.chairs = {
-                            [data.chairs_status.event_id.toString()]: data.chairs_status.chairs
-                        }
+                        this.chairs = data.chairs_status
                     })
                     .catch(error => {
                         console.error('Error fetching chairs:', error);
                 });
-            }
-        })
+            },
 
-        Alpine.store('selectedChairs', {
             selectedChairs: [],
-            toggleChair(chair) {
-                if (this.selectedChairs.includes(chair)) {
-                    this.selectedChairs = this.selectedChairs.filter(item => item !== chair);
+            toggleChair(chairId) {
+                chairWithTheSameID = this.selectedChairs.filter(chair => chair.ID === chairId)
+                if (chairWithTheSameID.length !== 0) {
+                    this.selectedChairs = this.selectedChairs.filter(item => item.ID !== chairId);
                 } else {
-                    this.selectedChairs.push(chair);
+                    this.selectedChairs.push(this.chairs.find(c => c.ID === chairId));
                 }
             },
-            submitBooking(eventId) {
+            submitBooking(EventID) {
                 const url = "{% url 'book' %}"
                 fetch(url, {
                     method: 'POST',
@@ -69,8 +67,8 @@
                         "X-CSRFToken": "{{ csrf_token }}"
                     },
                     body: JSON.stringify({
-                        event_id: eventId,
-                        seats: this.selectedChairs,
+                        event_id: EventID,
+                        seats: this.selectedChairs.map(c => c.SeatNumber),
                     }),
                 })
                 .then(response => response.json())

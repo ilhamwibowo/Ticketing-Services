@@ -40,9 +40,10 @@ class BookView(View):
 
         for seat in seats:
             # Create a new invoice
-            hold_seat_req = TicketingExternalAPI.hold_seat(seat)
+            hold_seat_req = TicketingExternalAPI.hold_seat(event_id, seat)
             invoice = Invoice(
-                id=hold_seat_req['invoice_id']
+                id=hold_seat_req['invoice_id'],
+                payment_url=hold_seat_req['payment_url']
             )
             invoice.save()
         

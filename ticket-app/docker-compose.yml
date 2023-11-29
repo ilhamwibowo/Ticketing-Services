@@ -12,6 +12,9 @@ services:
       DATABASE_URL: postgres://local-dev@db/api?sslmode=disable 
     ports:
     - "3000:3000"
+    networks:
+      - default
+      - client-app_shared_network
     links:
     - db
   db:
@@ -40,3 +43,7 @@ services:
 
 volumes:
   data:
+
+networks:
+  client-app_shared_network:
+    external: true
