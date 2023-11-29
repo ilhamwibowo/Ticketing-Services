@@ -1,3 +1,4 @@
+//ticket-app/apiserver/handlers
 package apiserver
 
 import (
@@ -7,81 +8,16 @@ import (
   	"math/rand"
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jung-kurt/gofpdf"
 	"ticket/storage"
 )
 
 func (s *APIServer) defaultRoute(c *gin.Context) {
 	c.String(http.StatusOK, "Hello World")
 }
-
-func (s *APIServer) createSeat(c *gin.Context) {
-	var seat storage.Seat
-
-	if err := c.ShouldBindJSON(&seat); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if seat.EventID == 0 || seat.SeatNumber == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Incomplete data: seat number and event ID are required"})
-		return
-	}
-
-	event, err := s.storage.GetEventByID(seat.EventID)
-	if err != nil || event == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
-		return
-	}
-
-	if err := s.storage.CreateSeat(&seat); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, seat)
-}
-
-
-func (s *APIServer) listSeat(c *gin.Context) {
-	seats, err := s.storage.GetSeats()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, seats)
-}
-
-func (s *APIServer) getEmptySeats(c *gin.Context) {
-	eventIDStr := c.Param("event_id")
-	eventID, err := strconv.ParseUint(eventIDStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
-		return
-	}
-
-	// Retrieve seats for the specified event with status 'OPEN'
-	seats, err := s.storage.GetEmptySeatsByEventID(uint(eventID))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, seats)
-}
-
-func (s *APIServer) getAllEvents(c *gin.Context) {
-    events, err := s.storage.GetEvents()
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-        return
-    }
-
-    c.JSON(http.StatusOK, events)
-}
-
 
 func (s *APIServer) holdSeat(c *gin.Context) {
 	eventIDStr := c.Param("event_id")
@@ -123,7 +59,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		SeatID:     seat.ID,
 		InvoiceID:  invoiceID,
 		PaymentURL: paymentURL,
-		Status:     "ONGOING",
+		Status:     "ON GOING",
 	}
 
 	if err := s.storage.CreateBooking(booking); err != nil {
@@ -132,7 +68,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 	}
 
 	// Update seat status to 'BOOKED'
-	seat.Status = "ONGOING"
+	seat.Status = "ON GOING"
 	if err := s.storage.UpdateSeat(seat); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -145,7 +81,6 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		"payment_url": paymentURL,
 	})
 }
-
 
 func (s *APIServer) paymentWebhook(c *gin.Context) {
 	// Parse the incoming JSON payload from the payment app
@@ -193,27 +128,64 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 }
 
 // TODO: impl
-func sendPDFToTicketApp(apiURL string, pdfContent []byte) (*http.Response, error) {
-	// Create a POST request to the specified API endpoint
-	req, err := http.NewRequest(http.MethodPost, apiURL, bytes.NewBuffer(pdfContent))
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Content-Type", "application/pdf")
-
-	// Perform the HTTP request
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
-}
+// send pdf to client
 
 // TODO: impl
-func generatePDF(invoiceID string) ([]byte, error) { 
-	content := []byte(fmt.Sprintf("PDF Content for Invoice ID: %s", invoiceID))
-	return content, nil
+// func generatePDF(invoiceID string) ([]byte, error) { 
+// 	content := []byte(fmt.Sprintf("PDF Content for Invoice ID: %s", invoiceID))
+// 	return content, nil
+// }
+
+// NOTE: DELETE LATER
+func (s *APIServer) testGeneratePDF(c *gin.Context) {
+	// Sample data for testing
+	eventName := "Sample Event"
+	seatNumber := "A1"
+	invoiceID := "INV123"
+	bookingID := "BK456"
+	status := "Paid"
+
+	// Generate PDF content using the generatePDF function
+	pdfContent, err := generatePDF(eventName, seatNumber, invoiceID, bookingID, status)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+		return
+	}
+
+	// Simulate sending the PDF content in the API response (for testing purposes)
+	c.Data(http.StatusOK, "application/pdf", pdfContent)
+}
+
+
+func generatePDF(eventName, seatNumber, invoiceID, bookingID, status string) ([]byte, error) {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+
+	// judul
+	pdf.SetFont("Arial", "B", 16)
+	pdf.MultiCell(0, 10, "Invoice", "0", "C", false)
+
+	pdf.SetFont("Arial", "", 12)
+	pdf.Ln(20)
+	pdf.Cell(0, 10, fmt.Sprintf("Event Name: %s", eventName))
+	pdf.Ln(10)
+	pdf.Cell(0, 10, fmt.Sprintf("Seat Number: %s", seatNumber))
+	pdf.Ln(10)
+	pdf.Cell(0, 10, fmt.Sprintf("Invoice ID: %s", invoiceID))
+	pdf.Ln(10)
+	pdf.Cell(0, 10, fmt.Sprintf("Booking ID: %s", bookingID))
+	pdf.Ln(10)
+
+	pdf.SetFont("Arial", "B", 12)
+	pdf.Cell(0, 10, fmt.Sprintf("Status: %s", strings.ToUpper(status)))
+
+	var buf bytes.Buffer
+
+	if err := pdf.Output(&buf); err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
 }
 
 func simulateCall() bool {
@@ -222,6 +194,7 @@ func simulateCall() bool {
 	return randomNum > 20
 }
 
+// TODO: impl
 func callPaymentAPI() (string, string, bool) {
 	rand.Seed(time.Now().UnixNano())
 	randomNum := rand.Intn(100)

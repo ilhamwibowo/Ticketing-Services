@@ -55,7 +55,7 @@ func apiServerCmd() *cli.Command {
 			databaseURL := c.String(apiServerStorageDatabaseURL)
 			s, err := storage.NewStorage(databaseURL)
 			if err != nil {
-				return fmt.Errorf("could not initialize storage: %w", err)
+				return fmt.Errorf("failed : %w", err)
 			}
 
 			addr := c.String(apiServerAddrFlagName)

@@ -59,7 +59,8 @@ func (s *APIServer) setupRouter() http.Handler {
 	router.GET("/", s.defaultRoute)
 	router.POST("/seats", s.createSeat)
 	router.GET("/seats", s.listSeat)
-  
+	router.GET("/seats/status/:event_id/:seat_number", s.listSeat)
+
   router.GET("/events", s.getAllEvents)
   router.GET("/events/:event_id/empty-seats", s.getEmptySeats)
   
