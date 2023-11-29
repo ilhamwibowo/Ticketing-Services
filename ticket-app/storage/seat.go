@@ -1,41 +1,68 @@
 package storage
 
 import (
-	"gorm.io/gorm"
+    "gorm.io/gorm"
+	"errors"
 )
 
-// Seat-related structs and methods
 type Seat struct {
-	ID       uint   `gorm:"primaryKey"`
-	Status   string `gorm:"not null;default:'OPEN'"`
+    ID     uint   `gorm:"primaryKey"`
+    SeatNumber string `gorm:"not null"`
+    EventID uint `gorm:"not null"`
+    Status string `gorm:"not null;default:'OPEN'"`
 }
 
-// CreateSeat creates a new seat
 func (s *Storage) CreateSeat(seat *Seat) error {
-	return s.db.Create(seat).Error
+    return s.db.Create(seat).Error
 }
 
-// GetSeatByID retrieves a seat by ID
 func (s *Storage) GetSeatByID(id uint) (*Seat, error) {
+    seat := &Seat{}
+    err := s.db.First(seat, id).Error
+    if err != nil {
+        return nil, err
+    }
+    return seat, nil
+}
+
+func (s *Storage) UpdateSeat(seat *Seat) error {
+    return s.db.Save(seat).Error
+}
+
+func (s *Storage) DeleteSeat(id uint) error {
+    return s.db.Delete(&Seat{}, id).Error
+}
+
+func (s *Storage) GetSeatsByEventID(eventID uint) ([]Seat, error) {
+    var seats []Seat
+    result := s.db.Where("event_id = ?", eventID).Find(&seats)
+    if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+        return nil, result.Error
+    }
+    return seats, nil
+}
+
+func (s *Storage) GetEmptySeatsByEventID(eventID uint) ([]Seat, error) {
+    var emptySeats []Seat
+    result := s.db.Where("event_id = ? AND status = ?", eventID, "OPEN").Find(&emptySeats)
+    if result.Error != nil && result.Error != gorm.ErrRecordNotFound {
+        return nil, result.Error
+    }
+    return emptySeats, nil
+}
+
+func (s *Storage) GetSeatByEventIDAndNumber(eventID uint, seatNumber string) (*Seat, error) {
 	seat := &Seat{}
-	err := s.db.First(seat, id).Error
+	err := s.db.Where("event_id = ? AND seat_number = ?", eventID, seatNumber).First(seat).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
 		return nil, err
 	}
 	return seat, nil
 }
 
-// UpdateSeat updates an existing seat
-func (s *Storage) UpdateSeat(seat *Seat) error {
-	return s.db.Save(seat).Error
-}
-
-// DeleteSeat deletes a seat
-func (s *Storage) DeleteSeat(id uint) error {
-	return s.db.Delete(&Seat{}, id).Error
-}
-
-// GetSeats retrieves all seats from the database
 func (s *Storage) GetSeats() ([]Seat, error) {
 	var seats []Seat
 	result := s.db.Find(&seats)

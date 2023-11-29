@@ -59,8 +59,12 @@ func (s *APIServer) setupRouter() http.Handler {
 	router.GET("/", s.defaultRoute)
 	router.POST("/seats", s.createSeat)
 	router.GET("/seats", s.listSeat)
-  router.POST("/seats/:id/hold", s.holdSeat)
+  
+  router.GET("/events", s.getAllEvents)
+  router.GET("/events/:event_id/empty-seats", s.getEmptySeats)
+  
+  router.POST("/book/:event_id/:seat_number", s.holdSeat)
   router.POST("/webhook/payment", s.paymentWebhook)
-
-	return router
+  
+  return router
 }

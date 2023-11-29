@@ -7,7 +7,7 @@ import (
   	"math/rand"
 	"bytes"
 	"fmt"
-	
+
 	"github.com/gin-gonic/gin"
 	"ticket/storage"
 )
@@ -24,6 +24,17 @@ func (s *APIServer) createSeat(c *gin.Context) {
 		return
 	}
 
+	if seat.EventID == 0 || seat.SeatNumber == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Incomplete data: seat number and event ID are required"})
+		return
+	}
+
+	event, err := s.storage.GetEventByID(seat.EventID)
+	if err != nil || event == nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		return
+	}
+
 	if err := s.storage.CreateSeat(&seat); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -31,6 +42,7 @@ func (s *APIServer) createSeat(c *gin.Context) {
 
 	c.JSON(http.StatusOK, seat)
 }
+
 
 func (s *APIServer) listSeat(c *gin.Context) {
 	seats, err := s.storage.GetSeats()
@@ -42,18 +54,53 @@ func (s *APIServer) listSeat(c *gin.Context) {
 	c.JSON(http.StatusOK, seats)
 }
 
-func (s *APIServer) holdSeat(c *gin.Context) {
-	seatIDStr := c.Param("id")
+func (s *APIServer) getEmptySeats(c *gin.Context) {
+	eventIDStr := c.Param("event_id")
+	eventID, err := strconv.ParseUint(eventIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		return
+	}
 
-  seatID, err := strconv.ParseUint(seatIDStr, 10, 64)
-	seat, err := s.storage.GetSeatByID(uint(seatID))
+	// Retrieve seats for the specified event with status 'OPEN'
+	seats, err := s.storage.GetEmptySeatsByEventID(uint(eventID))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	if seat.Status != "OPEN" {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Seat already booked"})
+	c.JSON(http.StatusOK, seats)
+}
+
+func (s *APIServer) getAllEvents(c *gin.Context) {
+    events, err := s.storage.GetEvents()
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, events)
+}
+
+
+func (s *APIServer) holdSeat(c *gin.Context) {
+	eventIDStr := c.Param("event_id")
+	seatNumber := c.Param("seat_number")
+
+	eventID, err := strconv.ParseUint(eventIDStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid event ID"})
+		return
+	}
+
+	seat, err := s.storage.GetSeatByEventIDAndNumber(uint(eventID), seatNumber)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if seat == nil || seat.Status != "OPEN" {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "Seat is not available"})
 		return
 	}
 
@@ -76,7 +123,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		SeatID:     seat.ID,
 		InvoiceID:  invoiceID,
 		PaymentURL: paymentURL,
-		Status:     "ON GOING",
+		Status:     "ONGOING",
 	}
 
 	if err := s.storage.CreateBooking(booking); err != nil {
@@ -85,7 +132,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 	}
 
 	// Update seat status to 'BOOKED'
-	seat.Status = "ON GOING"
+	seat.Status = "ONGOING"
 	if err := s.storage.UpdateSeat(seat); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -98,6 +145,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		"payment_url": paymentURL,
 	})
 }
+
 
 func (s *APIServer) paymentWebhook(c *gin.Context) {
 	// Parse the incoming JSON payload from the payment app
