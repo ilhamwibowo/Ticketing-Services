@@ -54,7 +54,7 @@ async def send_webhook(invoice):
 
 @csrf_exempt
 def process_payment(request):
-    invoice_id = "DG9M91E7"
+    invoice_id = generate_unique_invoice_id()
 
     # Simulate 10% failure
     status = random.choices([True, False], weights=[90, 10])[0]
