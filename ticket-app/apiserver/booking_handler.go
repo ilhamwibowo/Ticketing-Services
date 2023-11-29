@@ -273,7 +273,7 @@ func generatePDF(eventName, seatNumber, invoiceID, bookingID, status, failureRea
 func simulateCall() bool {
 	rand.Seed(time.Now().UnixNano())
 	randomNum := rand.Intn(100)
-	return randomNum > 100
+	return randomNum > 20
 }
 
 func callPaymentAPI() (string, string, error) {

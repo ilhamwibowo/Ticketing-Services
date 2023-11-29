@@ -8,6 +8,8 @@ from django.urls import reverse
 from .models import Invoice
 from asgiref.sync import async_to_sync, sync_to_async
 import aiohttp
+import threading
+import time
 
 @csrf_exempt
 def hello_world(request):
@@ -38,29 +40,8 @@ def generate_random_invoice_id():
     # Implementasi sederhana untuk menghasilkan invoice_id yang unik
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
 
-async def send_webhook(invoice):
-    await asyncio.sleep(10)
-    webhook_url = "http://app:3000/webhook/payment"  # Replace with the appropriate URL
-    payload = {
-        'invoice_id': invoice.invoice_id,
-        'status': str(invoice.status),
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'}) as response:
-            if response.status == 200:
-                print("Webhook sent successfully")
-            else:
-                try:
-                    error_message = await response.json()
-                    print(f"Failed to send webhook. Status: {response.status}. Error: {error_message}")
-                except aiohttp.ContentTypeError:
-                    print(f"Failed to send webhook. Status: {response.status}. Unable to read error message.")
-
-@csrf_exempt
 def process_payment(request):
-    invoice_id = "INV132"
-    print("anjrit")
+    invoice_id = generate_random_invoice_id()
     
     # Simulate 10% failure
     status = random.choices([True, False], weights=[90, 10])[0]
@@ -77,6 +58,25 @@ def process_payment(request):
         'payment_url': payment_url
     }
 
-    asyncio.run(send_webhook(invoice))
+    webhook_thread = threading.Thread(target=send_webhook, args=(invoice,))
+    webhook_thread.start()
 
     return JsonResponse(response_data)
+
+def send_webhook(invoice):
+    time.sleep(10) 
+    webhook_url = "http://app:3000/webhook/payment"
+    payload = {
+        'invoice_id': invoice.invoice_id,
+        'status': str(invoice.status),
+    }
+
+    try:
+        response = requests.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
+        if response.status_code == 200:
+            print("Webhook sent successfully")
+        else:
+            error_message = response.json() if response.headers.get('content-type') == 'application/json' else response.text
+            print(f"Failed to send webhook. Status: {response.status_code}. Error: {error_message}")
+    except requests.RequestException as e:
+        print(f"Failed to send webhook. Error: {str(e)}")
