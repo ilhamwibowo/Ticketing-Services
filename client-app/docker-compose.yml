@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres
+    container_name: client_db 
     volumes:
       - ./data/db:/var/lib/postgresql/data
     environment:

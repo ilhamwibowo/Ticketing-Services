@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres
+    container_name: payment_db
     volumes:
       - ./data/db:/var/lib/postgresql/data
     environment:
@@ -25,6 +26,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
     networks:
+      - default
       - client-app_shared_network
     depends_on:
       db:
