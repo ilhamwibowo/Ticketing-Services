@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"encoding/json"
+	"encoding/base64"
 
 	"github.com/gin-gonic/gin"
 	"github.com/skip2/go-qrcode"
@@ -48,6 +49,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		return
 	}
 
+	event, err := s.storage.GetEventByID(uint(eventID))
 	seat, err := s.storage.GetSeatByEventIDAndNumber(uint(eventID), seatNumber)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -60,16 +62,48 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 	}
 
 	success := simulateCall()
-
+	fmt.Println("External Call")
 	if !success {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Booking failed"})
+		paymentURL := "https://web:8080/payment/process-payment" 
+
+		pdfContent, err := generatePDF(event.EventName, seat.SeatNumber, "-1", "0", "False", "Payment Failed")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+			return
+		}
+
+		// Encode PDF content to base64 for inclusion in the response
+		pdfBase64 := base64.StdEncoding.EncodeToString(pdfContent)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message":     "Booking failed",
+			"invoice_id":  "-1",
+			"payment_url": paymentURL,
+			"pdf":         pdfBase64, 
+			"error":       "Payment failed",
+		})
 		return
 	}
 
 	invoiceID, paymentURL, err := callPaymentAPI()
+	fmt.Println("Payment Done")
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"message": "Payment failed"})
+		pdfContent, err := generatePDF(event.EventName, seat.SeatNumber, invoiceID, "0", "Failed", "Payment Failed")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate PDF"})
+			return
+		}
+
+		pdfBase64 := base64.StdEncoding.EncodeToString(pdfContent)
+
+		c.JSON(http.StatusBadRequest, gin.H{
+			"message":     "Booking failed",
+			"invoice_id":  invoiceID,
+			"payment_url": paymentURL,
+			"pdf":         pdfBase64,
+			"error":       "Payment failed",
+		})
 		return
 	}
 
@@ -86,20 +120,19 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		return
 	}
 
-	// Update seat status to 'BOOKED'
 	seat.Status = "ON GOING"
 	if err := s.storage.UpdateSeat(seat); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Return booking ongoing
 	c.JSON(http.StatusOK, gin.H{
-		"message":    "Booking ongoing",
-		"invoice_id": invoiceID,
+		"message":     "Booking ongoing",
+		"invoice_id":  invoiceID,
 		"payment_url": paymentURL,
 	})
 }
+
 
 func (s *APIServer) paymentWebhook(c *gin.Context) {
 	var webhookData struct {
@@ -130,7 +163,7 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 		return
 	}
 
-	if webhookData.Status == "success" {
+	if webhookData.Status == "True" {
 		err := s.storage.UpdateSeatStatusByID(seat.ID, "BOOKED")
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seat status"})
@@ -240,11 +273,13 @@ func generatePDF(eventName, seatNumber, invoiceID, bookingID, status, failureRea
 func simulateCall() bool {
 	rand.Seed(time.Now().UnixNano())
 	randomNum := rand.Intn(100)
-	return randomNum > 20
+	return randomNum > 100
 }
 
 func callPaymentAPI() (string, string, error) {
-	resp, err := http.Get("http://webd:8080/process-payment")
+	resp, err := http.Get("http://web:8080/payment/process-payment/")
+	fmt.Println("OKI")
+
 	if err != nil {
 		return "", "", err
 	}
@@ -262,7 +297,6 @@ func callPaymentAPI() (string, string, error) {
 	if err := json.NewDecoder(resp.Body).Decode(&paymentData); err != nil {
 		return "", "", err
 	}
-
 	return paymentData.InvoiceID, paymentData.PaymentURL, nil
 }
 
@@ -308,4 +342,17 @@ func sendPDFToClient(invoiceID string, pdfContent []byte) error {
 	fmt.Println("API Response:", string(respBody))
 
 	return nil
+}
+
+func generateRandomInvoiceID() string {
+    chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+    
+    rand.Seed(time.Now().UnixNano())
+    
+    invoiceID := make([]rune, 8)
+    for i := range invoiceID {
+        invoiceID[i] = chars[rand.Intn(len(chars))]
+    }
+    
+    return string(invoiceID)
 }

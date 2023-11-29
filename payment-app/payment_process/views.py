@@ -39,23 +39,29 @@ def generate_random_invoice_id():
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=8))
 
 async def send_webhook(invoice):
+    await asyncio.sleep(10)
     webhook_url = "http://app:3000/webhook/payment"  # Replace with the appropriate URL
     payload = {
         'invoice_id': invoice.invoice_id,
         'status': str(invoice.status),
     }
 
-    response = requests.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
-    if response.status_code == 200:
-        print("Webhook sent successfully")
-    else:
-        print(response)
-        print("Failed to send webhook")
+    async with aiohttp.ClientSession() as session:
+        async with session.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'}) as response:
+            if response.status == 200:
+                print("Webhook sent successfully")
+            else:
+                try:
+                    error_message = await response.json()
+                    print(f"Failed to send webhook. Status: {response.status}. Error: {error_message}")
+                except aiohttp.ContentTypeError:
+                    print(f"Failed to send webhook. Status: {response.status}. Unable to read error message.")
 
 @csrf_exempt
 def process_payment(request):
-    invoice_id = generate_unique_invoice_id()
-
+    invoice_id = "INV132"
+    print("anjrit")
+    
     # Simulate 10% failure
     status = random.choices([True, False], weights=[90, 10])[0]
 
@@ -64,13 +70,13 @@ def process_payment(request):
         status=status,
     )
 
-    # async
-    asyncio.run(send_webhook(invoice))
     payment_url = request.build_absolute_uri(reverse('process_payment'))
 
     response_data = {
-        'invoice_id': invoice_id, 
+        'invoice_id': invoice_id,
         'payment_url': payment_url
     }
+
+    asyncio.run(send_webhook(invoice))
 
     return JsonResponse(response_data)
