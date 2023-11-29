@@ -3,22 +3,27 @@
 
 NIM | Nama
 --- | --- 
-13520XXX | Nama 1
-13520XXX | Nama 2
+13520013 | Ilham Prasetyo Wibowo
+13520067 | Farnas Rozaan Iraqee
+13520135 | Muhammad Alif Putra Yasa
 
 ---
 
 ## Client App
 System Entity | Tech
 --- | --- 
-API Server | Nama stack yang digunakan untuk API Server
-Database | Nama stack yang digunakan untuk DB
-??? | Untuk hal lain (MQ/Cache/dkk)
+API Server | Python Django
+Database | PostgreSQL
 
 
 ## Ticket App
 System Entity | Tech
 --- | --- 
-API Server | Nama stack yang digunakan untuk API Server
-Database | Nama stack yang digunakan untuk DB
-??? | Untuk hal lain (MQ/Cache/dkk)
+API Server | Go Gin
+Database | PostgreSQL
+
+## Payment App
+System Entity | Tech
+--- | --- 
+API Server | Python Django
+Database | PostgreSQL
