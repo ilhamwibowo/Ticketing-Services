@@ -7,26 +7,22 @@ from .models import Invoice
 
 @csrf_exempt
 def process_payment(request):
-    invoice_number = request.POST.get('invoice_number')
-    amount = float(request.POST.get('amount'))
+    invoice_id = request.POST.get('invoice_id')
 
     # Simulasi kegagalan 10%
-    success = random.choices([True, False], weights=[90, 10])[0]
+    status = random.choices([True, False], weights=[90, 10])[0]
 
     invoice = Invoice.objects.create(
-        invoice_number=invoice_number,
-        amount=amount,
-        success=success,
+        invoice_id=invoice_id,
+        status=status,
     )
 
     # Kirim webhook ke Ticket App
     webhook_url = "WEBHOOK_URL"  # Ganti dengan konfigurasi yang sesuai
     payload = {
-        'invoice_number': invoice.invoice_number,
-        'amount': invoice.amount,
-        'success': invoice.success,
+        'invoice_id': invoice.invoice_id,
+        'status': invoice.status,
     }
     requests.post(webhook_url, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
-
-    return JsonResponse({'message': 'Payment processed successfully'})
-
+    
+    return JsonResponse({'message': 'Payment process done!'})
