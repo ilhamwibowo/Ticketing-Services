@@ -7,6 +7,9 @@ import json
 from .models import BookingTransaction, Invoice, TicketingExternalAPI
 from django.db.models import F
 from django.views.decorators.csrf import csrf_exempt
+from django.core.files.base import ContentFile
+import uuid
+import base64
 
 
 @login_required
@@ -37,11 +40,18 @@ class BookView(View):
         for seat in seats:
             # Create a new invoice
             hold_seat_req = TicketingExternalAPI.hold_seat(event_id, seat)
+            temp_id = hold_seat_req['invoice_id']
+            if (temp_id == '-1'):
+                temp_id = str(uuid.uuid4())
+
             invoice = Invoice(
-                id=hold_seat_req['invoice_id'],
+                id=temp_id,
                 status=hold_seat_req['message'],
-                payment_url=hold_seat_req['payment_url']
+                payment_url=hold_seat_req['payment_url'],
             )
+            invoice.invoice.save(f"{temp_id}.pdf", ContentFile(
+                base64.b64decode(hold_seat_req['pdf'])
+            ))
             invoice.save()
         
             # Create and save the BookingTransaction entry
