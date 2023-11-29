@@ -11,6 +11,7 @@ import (
 	"strings"
 	"io/ioutil"
 	"mime/multipart"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 	"github.com/skip2/go-qrcode"
@@ -23,7 +24,7 @@ func (s *APIServer) defaultRoute(c *gin.Context) {
 }
 
 func (s *APIServer) checkClientHealth(c *gin.Context) {
-	resp, err := http.Get("http://web:8000/book")
+	resp, err := http.Get("http://web:8080/payment/hello-world")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to the service"})
 		return
@@ -65,9 +66,9 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 		return
 	}
 
-	invoiceID, paymentURL, paymentSuccess := callPaymentAPI()
+	invoiceID, paymentURL, err := callPaymentAPI()
 
-	if !paymentSuccess {
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"message": "Payment failed"})
 		return
 	}
@@ -128,6 +129,22 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to retrieve seat"})
 		return
 	}
+
+	if webhookData.Status == "success" {
+		err := s.storage.UpdateSeatStatusByID(seat.ID, "BOOKED")
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seat status"})
+			return
+	} else {
+			err := s.storage.UpdateSeatStatusByID(seat.ID, "OPEN")
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seat status"})
+				return
+			}
+
+		}
+	}
+	
 
 	event, err := s.storage.GetEventByID(seat.EventID)
 	if err != nil {
@@ -226,18 +243,29 @@ func simulateCall() bool {
 	return randomNum > 20
 }
 
-// TODO: impl
-func callPaymentAPI() (string, string, bool) {
-	rand.Seed(time.Now().UnixNano())
-	randomNum := rand.Intn(100)
-	if randomNum < 10 {
-		return "", "", false // Simulate failure
+func callPaymentAPI() (string, string, error) {
+	resp, err := http.Get("http://webd:8080/process-payment")
+	if err != nil {
+		return "", "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", "", fmt.Errorf("API call failed with status code: %d", resp.StatusCode)
 	}
 
-	mockInvoiceID := "INV12345" // TODO: change
-	mockPaymentURL := "https://payment.app.com/pay/INV12345"
-	return mockInvoiceID, mockPaymentURL, true
+	var paymentData struct {
+		InvoiceID   string `json:"invoice_id"`
+		PaymentURL  string `json:"payment_url"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&paymentData); err != nil {
+		return "", "", err
+	}
+
+	return paymentData.InvoiceID, paymentData.PaymentURL, nil
 }
+
 
 func sendPDFToClient(invoiceID string, pdfContent []byte) error {
 	body := &bytes.Buffer{}

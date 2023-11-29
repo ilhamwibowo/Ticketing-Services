@@ -1,6 +1,9 @@
 # Database data for client-app
 client-app/data
 
+# Database data for payment-app
+payment-app/data
+
 # TICKET
 ticket-app/tmp
 

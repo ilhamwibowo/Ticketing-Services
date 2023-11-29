@@ -63,6 +63,16 @@ func (s *Storage) GetSeatByEventIDAndNumber(eventID uint, seatNumber string) (*S
 	return seat, nil
 }
 
+func (s *Storage) UpdateSeatStatusByID(seatID uint, status string) error {
+	seat := &Seat{ID: seatID}
+	err := s.db.Model(seat).Update("status", status).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
 func (s *Storage) GetSeats() ([]Seat, error) {
 	var seats []Seat
 	result := s.db.Find(&seats)
