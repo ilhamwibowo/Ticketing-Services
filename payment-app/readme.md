@@ -9,9 +9,7 @@ Dokumentasi ini tidak strict, silahkan ubah sesuai yang diinginkan, yang penting
 | HTTP Method | Endpoint                  | Description              |
 | ----------- | ------------------------- | ------------------------ |
 | GET         | /health/                  | Get service health check |
-| POST        | /payment/send-invoice-id/ | Send invoice id          |
 | POST        | /payment/process-payment/ | Process payment          |
-| POST        | /payment/payment-form/    | Payment form             |
 
 ## How To Start
 
