@@ -36,6 +36,12 @@ class Invoice(models.Model):
     status = models.CharField(max_length=100, default=None, null=True)
     payment_url = models.URLField(default=None, null=True)
 
+    def save(self, *args, **kwargs):
+        # Generate UUID if not provided
+        if not self.id:
+            self.id = uuid.uuid4()
+        super().save(*args, **kwargs)
+
 class BookingTransaction(models.Model):
     id = models.UUIDField(primary_key=True, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
