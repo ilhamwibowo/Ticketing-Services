@@ -1,23 +1,24 @@
-//ticket-app/apiserver/booking_handler.go
+// ticket-app/apiserver/booking_handler.go
 package apiserver
 
 import (
+	"bytes"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"mime/multipart"
 	"net/http"
 	"strconv"
-	"time"
-  	"math/rand"
-	"bytes"
-	"fmt"
 	"strings"
-	"io/ioutil"
-	"mime/multipart"
-	"encoding/json"
-	"encoding/base64"
+	"time"
+
+	"ticket/storage"
 
 	"github.com/gin-gonic/gin"
-	"github.com/skip2/go-qrcode"
 	"github.com/jung-kurt/gofpdf"
-	"ticket/storage"
+	"github.com/skip2/go-qrcode"
 )
 
 func (s *APIServer) defaultRoute(c *gin.Context) {
@@ -25,7 +26,7 @@ func (s *APIServer) defaultRoute(c *gin.Context) {
 }
 
 func (s *APIServer) checkClientHealth(c *gin.Context) {
-	resp, err := http.Get("http://web:8080/payment/hello-world")
+	resp, err := http.Get("http://web:8000/payment/hello-world")
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to connect to the service"})
 		return
@@ -64,7 +65,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 	success := simulateCall()
 	fmt.Println("External Call")
 	if !success {
-		paymentURL := "https://web:8080/payment/process-payment" 
+		paymentURL := "https://web:8000/payment/process-payment"
 
 		pdfContent, err := generatePDF(event.EventName, seat.SeatNumber, "-1", "0", "False", "Payment Failed")
 		if err != nil {
@@ -79,7 +80,7 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 			"message":     "Booking failed",
 			"invoice_id":  "-1",
 			"payment_url": paymentURL,
-			"pdf":         pdfBase64, 
+			"pdf":         pdfBase64,
 			"error":       "Payment failed",
 		})
 		return
@@ -133,7 +134,6 @@ func (s *APIServer) holdSeat(c *gin.Context) {
 	})
 }
 
-
 func (s *APIServer) paymentWebhook(c *gin.Context) {
 	var webhookData struct {
 		InvoiceID string `json:"invoice_id"`
@@ -168,7 +168,7 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seat status"})
 			return
-	} else {
+		} else {
 			err := s.storage.UpdateSeatStatusByID(seat.ID, "OPEN")
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update seat status"})
@@ -177,7 +177,6 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 
 		}
 	}
-	
 
 	event, err := s.storage.GetEventByID(seat.EventID)
 	if err != nil {
@@ -200,7 +199,6 @@ func (s *APIServer) paymentWebhook(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "PDF sent to ticket app"})
 }
 
-
 // NOTE: DELETE LATER
 func (s *APIServer) testGeneratePDF(c *gin.Context) {
 	eventName := "Sample Event"
@@ -217,7 +215,6 @@ func (s *APIServer) testGeneratePDF(c *gin.Context) {
 
 	c.Data(http.StatusOK, "application/pdf", pdfContent)
 }
-
 
 func generatePDF(eventName, seatNumber, invoiceID, bookingID, status, failureReason string) ([]byte, error) {
 	pdf := gofpdf.New("P", "mm", "A4", "")
@@ -277,10 +274,11 @@ func simulateCall() bool {
 }
 
 func callPaymentAPI() (string, string, error) {
-	resp, err := http.Get("http://web:8080/payment/process-payment/")
+	resp, err := http.Get("http://web:8000/payment/process-payment/")
 	fmt.Println("OKI")
 
 	if err != nil {
+		fmt.Println(err)
 		return "", "", err
 	}
 	defer resp.Body.Close()
@@ -290,8 +288,8 @@ func callPaymentAPI() (string, string, error) {
 	}
 
 	var paymentData struct {
-		InvoiceID   string `json:"invoice_id"`
-		PaymentURL  string `json:"payment_url"`
+		InvoiceID  string `json:"invoice_id"`
+		PaymentURL string `json:"payment_url"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&paymentData); err != nil {
@@ -299,7 +297,6 @@ func callPaymentAPI() (string, string, error) {
 	}
 	return paymentData.InvoiceID, paymentData.PaymentURL, nil
 }
-
 
 func sendPDFToClient(invoiceID string, pdfContent []byte) error {
 	body := &bytes.Buffer{}
@@ -315,7 +312,7 @@ func sendPDFToClient(invoiceID string, pdfContent []byte) error {
 
 	_ = writer.Close()
 
-	apiURL := "http://web:8000/book/api/invoices/create/"
+	apiURL := "http://client-web:8000/book/api/invoices/create/"
 
 	req, err := http.NewRequest("POST", apiURL, body)
 	if err != nil {
@@ -345,14 +342,14 @@ func sendPDFToClient(invoiceID string, pdfContent []byte) error {
 }
 
 func generateRandomInvoiceID() string {
-    chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
-    
-    rand.Seed(time.Now().UnixNano())
-    
-    invoiceID := make([]rune, 8)
-    for i := range invoiceID {
-        invoiceID[i] = chars[rand.Intn(len(chars))]
-    }
-    
-    return string(invoiceID)
+	chars := []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+	rand.Seed(time.Now().UnixNano())
+
+	invoiceID := make([]rune, 8)
+	for i := range invoiceID {
+		invoiceID[i] = chars[rand.Intn(len(chars))]
+	}
+
+	return string(invoiceID)
 }

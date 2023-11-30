@@ -41,7 +41,7 @@ class BookView(View):
             # Create a new invoice
             hold_seat_req = TicketingExternalAPI.hold_seat(event_id, seat)
             temp_id = hold_seat_req['invoice_id']
-            if (temp_id == '-1'):
+            if (temp_id == '-1' or temp_id == ''):
                 temp_id = str(uuid.uuid4())
 
             invoice = Invoice(
@@ -49,7 +49,7 @@ class BookView(View):
                 status=hold_seat_req['message'],
                 payment_url=hold_seat_req['payment_url'],
             )
-            if hold_seat_req['pdf']:
+            if 'pdf' in hold_seat_req:
                 invoice.invoice.save(f"{temp_id}.pdf", ContentFile(
                     base64.b64decode(hold_seat_req['pdf'])
                 ))

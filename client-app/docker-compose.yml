@@ -15,6 +15,7 @@ services:
       retries: 20
   web:
     build: .
+    container_name: client-web
     entrypoint:
       - ./docker-entrypoint.sh
     volumes:
